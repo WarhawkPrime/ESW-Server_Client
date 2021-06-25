@@ -6,7 +6,7 @@ LIBS = -lpthread -lrt
 SRC = $(wildcard *.cpp)
 OBJ = $(addprefix obj/,$(notdir $(SRC:.cpp=.o)))
 
-TARGET = termin4
+TARGET = server
 
 all: obj $(TARGET)
 

@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
 		//*global_finished = 1;
 		//std::cout << "finished: " << *global_finished << std::endl;
 
-    cout << "Creating a child process ..." << endl;
+    //cout << "Creating a child process ..." << endl;
     pid_t pid = fork();
 
 		/* ========== CHILD ========== */
@@ -180,6 +180,7 @@ int main(int argc, char* argv[])
 				while(true) {
 
 					//wait for incoming connections
+					std::cout << "waiting for connection request:" << std::endl;
 					tcp.accept_connection();
 
 					//std::cout << "waiting for access on child .... " << std::endl;

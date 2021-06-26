@@ -169,7 +169,9 @@ int main(int argc, char* argv[])
 				const char* port = temp_string.c_str();
 
 				tcp.fill_serverInfo(port);
+				//tcp.close_socket();
 				tcp.create_socket();
+				//tcp.close_socket();
 				tcp.bind_socket();
 				tcp.listen_socket();
 				//===== socket =====/
@@ -182,6 +184,7 @@ int main(int argc, char* argv[])
 					//wait for incoming connections
 					std::cout << "waiting for connection request:" << std::endl;
 					tcp.accept_connection();
+					std::cout << "request accepted:" << std::endl;
 
 					//std::cout << "waiting for access on child .... " << std::endl;
 
@@ -208,8 +211,8 @@ int main(int argc, char* argv[])
 						//std::cout << "a message exists" << std::endl;
 						std::cout << "Message Number: " << mmsg->data.PackedData.id << std::endl;
 						std::cout << "Message send: " << send_time  << " ns"<< std::endl;
-						std::cout << "Message received: " << received_time << " ns"<< std::endl;
-						std::cout << "Send time: " << duration << " ns"<< std::endl;
+						//std::cout << "Message received: " << received_time << " ns"<< std::endl;
+						//std::cout << "Send time: " << duration << " ns"<< std::endl;
 						std::cout << "GyroX: " << mmsg->data.PackedData.motion.gyro.x << std::endl;
 						std::cout << "GyroY: " << mmsg->data.PackedData.motion.gyro.y << std::endl;
 						std::cout << "GyroZ: " << mmsg->data.PackedData.motion.gyro.z << std::endl;
@@ -217,32 +220,29 @@ int main(int argc, char* argv[])
 						std::cout << "AccY: " << mmsg->data.PackedData.motion.acc.y << std::endl;
 						std::cout << "AccZ: " << mmsg->data.PackedData.motion.acc.z << std::endl;
 
+						
+
 						//===== socket =====
-						std::string message = "NR:" + mmsg->data.PackedData.id;
+						std::string message = "NR:" + std::to_string(htonl(mmsg->data.PackedData.id));
 						message += ";";
-						message += "ST:" + send_time;
+						message += "ST:" + std::to_string(htonl(send_time));
 						message += ";";
-						message += "RT:" + received_time;
+						message += "GX:" + std::to_string(htonl(mmsg->data.PackedData.motion.gyro.x));
 						message += ";";
-						message += "DT:" + duration;
+						message += "GY:" + std::to_string(htonl(mmsg->data.PackedData.motion.gyro.y));
 						message += ";";
-						message += "GX:" + std::to_string(mmsg->data.PackedData.motion.gyro.x);
+						message += "GZ:" + std::to_string(htonl(mmsg->data.PackedData.motion.gyro.z));
 						message += ";";
-						message += "GY:" + std::to_string(mmsg->data.PackedData.motion.gyro.y);
+						message += "AX:" + std::to_string(htonl(mmsg->data.PackedData.motion.acc.x));
 						message += ";";
-						message += "GZ:" + std::to_string(mmsg->data.PackedData.motion.gyro.z);
+						message += "AY:" + std::to_string(htonl(mmsg->data.PackedData.motion.acc.y));
 						message += ";";
-						message += "AX:" + std::to_string(mmsg->data.PackedData.motion.acc.x);
-						message += ";";
-						message += "AY:" + std::to_string(mmsg->data.PackedData.motion.acc.y);
-						message += ";";
-						message += "AZ:" + std::to_string(mmsg->data.PackedData.motion.acc.z);
+						message += "AZ:" + std::to_string(htonl(mmsg->data.PackedData.motion.acc.z));
 						message += ";";
 
 						const char* msg = message.c_str();
 						tcp.send_msg_to(msg);
 						//===== socket =====/
-
 						binary_semaphore->give();
 
 						if(counter == NUM_MESSAGES)

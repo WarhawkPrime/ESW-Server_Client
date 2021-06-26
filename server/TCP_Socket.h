@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-
+#include <netdb.h>
 
 #define BUF_SIZE 2000
 #define CPORT	"80"
@@ -69,6 +69,10 @@ public:
 	char* get_port() const { return CPORT; }
 	int get_buffer_size() const { return BUF_SIZE; }
 	std::string get_server_adress() const { return std::to_string(servaddr.sin_addr.s_addr); }
+
+	void check_host_name(int hostname);
+	void check_host_entry(struct hostent * hostentry);
+	void IP_formatter(char *IPbuffer);
 
 private:
 	int sockfd;				//file description

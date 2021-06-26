@@ -50,6 +50,19 @@ void TCP_Socket::fill_serverInfo(const char* port)
 
 	memset(servaddr.sin_zero, 0, sizeof(servaddr.sin_zero));
 	addrSize = sizeof(servaddr);
+
+	int hostname;
+	char host[256];
+	char *IP;
+	struct hostent *host_entry;
+
+	hostname = gethostname(host, sizeof(host));
+	check_host_name(hostname);
+	host_entry = gethostbyname(host);
+	check_host_entry(host_entry);
+	IP = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0]));
+
+	std::cout << "server connects to host: " << host << "on IP: " << IP << " on Port: " << port << std::endl;
 }
 
 
@@ -107,7 +120,6 @@ void TCP_Socket::send_msg_to(const char* msg)
 	int bytes_sent = 0;
 
 	len = strlen(msg);
-
 	bytes_sent = send(sockfd, msg, strlen(msg), 0);
 
 	if (bytes_sent < 0) {
@@ -173,4 +185,26 @@ void TCP_Socket::connect_socket()
 	if (rp == NULL) {
 		std::cerr << "Could not connect to address" << std::endl;
 	}
+}
+
+
+void TCP_Socket::check_host_name(int hostname) { //This function returns host name for local computer
+   if (hostname == -1) {
+      perror("gethostname");
+      exit(1);
+   }
+}
+
+void TCP_Socket::check_host_entry(struct hostent * hostentry) { //find host info from host name
+   if (hostentry == NULL){
+      perror("gethostbyname");
+      exit(1);
+   }
+}
+
+void TCP_Socket::IP_formatter(char *IPbuffer) { //convert IP string to dotted decimal format
+   if (NULL == IPbuffer) {
+      perror("inet_ntoa");
+      exit(1);
+   }
 }

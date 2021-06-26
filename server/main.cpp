@@ -218,16 +218,26 @@ int main(int argc, char* argv[])
 						std::cout << "AccZ: " << mmsg->data.PackedData.motion.acc.z << std::endl;
 
 						//===== socket =====
-						std::string message = "NR: " + mmsg->data.PackedData.id;
-						message += "ST: " + send_time;
-						message += "RT: " + received_time;
-						message += "DT: " + duration;
-						message += "GX: " + std::to_string(mmsg->data.PackedData.motion.gyro.x);
-						message += "GY: " + std::to_string(mmsg->data.PackedData.motion.gyro.y);
-						message += "GZ: " + std::to_string(mmsg->data.PackedData.motion.gyro.z);
-						message += "AX: " + std::to_string(mmsg->data.PackedData.motion.acc.x);
-						message += "AY: " + std::to_string(mmsg->data.PackedData.motion.acc.y);
-						message += "AZ: " + std::to_string(mmsg->data.PackedData.motion.acc.z);
+						std::string message = "NR:" + mmsg->data.PackedData.id;
+						message += ";";
+						message += "ST:" + send_time;
+						message += ";";
+						message += "RT:" + received_time;
+						message += ";";
+						message += "DT:" + duration;
+						message += ";";
+						message += "GX:" + std::to_string(mmsg->data.PackedData.motion.gyro.x);
+						message += ";";
+						message += "GY:" + std::to_string(mmsg->data.PackedData.motion.gyro.y);
+						message += ";";
+						message += "GZ:" + std::to_string(mmsg->data.PackedData.motion.gyro.z);
+						message += ";";
+						message += "AX:" + std::to_string(mmsg->data.PackedData.motion.acc.x);
+						message += ";";
+						message += "AY:" + std::to_string(mmsg->data.PackedData.motion.acc.y);
+						message += ";";
+						message += "AZ:" + std::to_string(mmsg->data.PackedData.motion.acc.z);
+						message += ";";
 
 						const char* msg = message.c_str();
 						tcp.send_msg_to(msg);

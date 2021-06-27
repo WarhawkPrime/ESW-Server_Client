@@ -97,7 +97,7 @@ MostMessage create_Message(int id){
 
 int main(int argc, char* argv[])
 {
-
+		signal(SIGPIPE, SIG_IGN);
 		//std::cout << "argc" << argc << " : " << argv[1] << std::endl;
 
 		shm_unlink(SHM_NAME);
@@ -175,16 +175,17 @@ int main(int argc, char* argv[])
 				tcp.bind_socket();
 				tcp.listen_socket();
 				//===== socket =====/
+				//wait for incoming connections
+				std::cout << "waiting for connection request:" << std::endl;
+				tcp.accept_connection();
+				std::cout << "request accepted:" << std::endl;
 
 				long mean_time = 0;
 				int counter = 0;
 
 				while(true) {
 
-					//wait for incoming connections
-					std::cout << "waiting for connection request:" << std::endl;
-					tcp.accept_connection();
-					std::cout << "request accepted:" << std::endl;
+
 
 					//std::cout << "waiting for access on child .... " << std::endl;
 
@@ -220,7 +221,7 @@ int main(int argc, char* argv[])
 						std::cout << "AccY: " << mmsg->data.PackedData.motion.acc.y << std::endl;
 						std::cout << "AccZ: " << mmsg->data.PackedData.motion.acc.z << std::endl;
 
-						
+
 
 						//===== socket =====
 						std::string message = "NR:" + std::to_string(htonl(mmsg->data.PackedData.id));
@@ -241,6 +242,7 @@ int main(int argc, char* argv[])
 						message += ";";
 
 						const char* msg = message.c_str();
+						//const char* msg = "Test message";
 						tcp.send_msg_to(msg);
 						//===== socket =====/
 						binary_semaphore->give();

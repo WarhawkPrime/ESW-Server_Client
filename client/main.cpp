@@ -5,9 +5,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include <arpa/inet.h>
 
 #include "CCommQueue.h"
 #include "SensorTag.h"
+#include "TCP_Socket.h"
 
 #include <pthread.h>
 #include <semaphore.h>
@@ -17,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <new>
+#include <sstream>
 
 #include <chrono>
 #include <ctime>
@@ -39,7 +42,7 @@ typedef struct PackedData PackedData_t;
 void *addr;
 Int8 *que;
 
-static int *global_finished;
+//static int *global_finished;
 
 CBinarySemaphore *binary_semaphore;
 CCommQueue *queue;
@@ -87,6 +90,85 @@ MostMessage create_Message(int id){
 
 /* ========== ========== ========== */
 
+MostMessage deserializeMessage(std::string msg) {
+
+	std::stringstream ss(msg);
+	std::string result;
+	MostMessage mmsg;
+	PackedData_t pck;
+	Motion_t motion;
+
+	std::cout << "Received Message: " << msg << std::endl;
+	std::cout << "--------------------------------------" << std::endl;
+
+	int counter = 0;
+	while (std::getline(ss, result, ';')) {
+
+		switch (counter) {
+
+		case 0: {
+			pck.id = ntohl(std::stoi(result));
+			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			counter++;
+			break;
+		}
+		case 1: {
+			pck.time = ntohl(std::stold(result));
+			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			counter++;
+			break;
+		}
+		case 2: {
+			motion.gyro.x = ntohl(std::stof(result));
+			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			counter++;
+			break;
+		}
+		case 3: {
+			motion.gyro.y = ntohl(std::stof(result));
+			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			counter++;
+			break;
+		}
+		case 4: {
+			motion.gyro.z = ntohl(std::stof(result));
+			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			counter++;
+			break;
+		}
+		case 5: {
+			motion.acc.x = ntohl(std::stof(result));
+			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			counter++;
+			break;
+		}
+		case 6: {
+			motion.acc.y = ntohl(std::stof(result));
+			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			counter++;
+			break;
+		}
+		case 7: {
+			motion.acc.z = ntohl(std::stof(result));
+			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			counter++;
+			break;
+		}
+		default: {
+			std::cout << "Error in deserializeMessage()" << std::endl;
+			break;
+		}
+		}
+	}
+
+	pck.motion = motion;
+
+	mmsg.data.PackedData.id = pck.id;
+	mmsg.data.PackedData.motion = pck.motion;
+	mmsg.data.PackedData.time = pck.time;
+
+	return mmsg;
+}
 
 
 int main(int argc, char** argv)
@@ -98,9 +180,11 @@ int main(int argc, char** argv)
 		}
 
 		// Variables for TCP socket
-		std::string address = argv[1];
-		std::string port = argv[2];
+		const char* address = argv[1];
+		const char* port = argv[2];
 		std::cout << address << " / " << port << std::endl;
+
+		
 
 		shm_unlink(SHM_NAME);
 		int fd = shm_open(SHM_NAME, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
@@ -123,7 +207,7 @@ int main(int argc, char** argv)
 		CBinarySemaphore c_sem;
 		queue = new(addr + sizeof(c_sem)) CCommQueue(QUEUE_SIZE, c_sem);
 
-		global_finished = new(addr + sizeof(c_sem) + sizeof(queue)) int;
+		//global_finished = new(addr + sizeof(c_sem) + sizeof(queue)) int;
 
 		//*global_finished = 1;
 		//std::cout << "finished: " << *global_finished << std::endl;
@@ -135,115 +219,128 @@ int main(int argc, char** argv)
     if (0 == pid)
     {
         // Child process - Reads all Messages from the Queue and outputs them with auxiliary data.
-				/* ========== ========== ========== */
-				long mean_time = 0;
-				int counter = 0;
+		/* ========== ========== ========== */
 
-				while(true) {
+		std::string received_data;
 
-					//std::cout << "waiting for access on child .... " << std::endl;
+		// Set server info and create TCP socket 
+		TCP_Socket socket;
+		socket.fill_serverInfo(address, port);
+		socket.create_socket();
+		socket.connect_socket();
+		//--------------//
 
-					binary_semaphore->take();  // wait for signal
+		int counter = 0;
+		while (true) {
 
-					CMessage msg;
-					//std::cout << "getMessage on child .... " << std::endl;
-					if(queue->getMessage(msg)){
 
-						counter++;
-						const MostMessage* mmsg = msg.getMostMessage();
+			if (counter < NUM_MESSAGES) {
 
-						auto now = std::chrono::system_clock::now();
-						auto now_ms = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
-						auto value = now_ms.time_since_epoch();
-    				long received_time = value.count();
+				// Receive sensor tag byte array
+				received_data = socket.rec_msg_fr();
+				
+				std::cout << "Received data: " << received_data << std::endl;
+				MostMessage mmsg = deserializeMessage(received_data);
+				const CMessage c_msg(mmsg);
 
-						UInt64 send_time = mmsg->data.PackedData.time;
-						long duration = received_time - send_time;
-						mean_time += duration;
+				queue->add(c_msg);
+				binary_semaphore->give();
+				counter++;
+				//std::cout << "message created and send: " << counter << std::endl;
+				binary_semaphore->give();
+			}
+			else {
+				break;
+			}
 
-						//Ausgaben:
-						std::cout << std::endl;
-						//std::cout << "a message exists" << std::endl;
-						std::cout << "Message Number: " << mmsg->data.PackedData.id << std::endl;
-						std::cout << "Message send: " << send_time  << " ns"<< std::endl;
-						std::cout << "Message received: " << received_time << " ns"<< std::endl;
-						std::cout << "Send time: " << duration << " ns"<< std::endl;
-						std::cout << "GyroX: " << mmsg->data.PackedData.motion.gyro.x << std::endl;
-						std::cout << "GyroY: " << mmsg->data.PackedData.motion.gyro.y << std::endl;
-						std::cout << "GyroZ: " << mmsg->data.PackedData.motion.gyro.z << std::endl;
-						std::cout << "AccX: " << mmsg->data.PackedData.motion.acc.x << std::endl;
-						std::cout << "AccY: " << mmsg->data.PackedData.motion.acc.y << std::endl;
-						std::cout << "AccZ: " << mmsg->data.PackedData.motion.acc.z << std::endl;
+			/*
+			else if(counter == NUM_MESSAGES + (2*QUEUE_SIZE)) {
+				break;
+			}
+			else {
+				binary_semaphore->give();
+				counter++;
+			}
+			*/
+		}
+				
 
-						binary_semaphore->give();
-
-						if(counter == NUM_MESSAGES)
-							break;
-					}
-				}
-
-				std::cout << std::endl;
-				mean_time = mean_time / NUM_MESSAGES;
-				std::cout << "Mean Time: " << mean_time << " ns" << std::endl;
-				//std::cout << "finished: " << *global_finished << std::endl;
-
-				/* ========== ========== ========== */
-				printf("from child: pid=%d, parent_pid=%d\n",(int)getpid(), (int)getppid());
-				exit(42);
+		/* ========== ========== ========== */
+		printf("from child: pid=%d, parent_pid=%d\n",(int)getpid(), (int)getppid());
+		exit(42);
     }
 		/* ========== PARENT ========== */
     else if (pid > 0)
     {
+				
+		int counter = 0;
+		long mean_time = 0;
+				
+		while (true) {
 
-				int counter = 0;
-				while(true) {
+			//std::cout << "waiting for access on child .... " << std::endl;
 
-					if(counter < NUM_MESSAGES) {
-						MostMessage mmsg = create_Message(counter);
-						const CMessage c_msg(mmsg);
+			binary_semaphore->take();  // wait for signal
 
-						queue->add(c_msg);
-						binary_semaphore->give();
-						counter++;
-						//std::cout << "message created and send: " << counter << std::endl;
-						binary_semaphore->give();
-					}
-					else {
-						break;
-					}
+			CMessage msg;
+			//std::cout << "getMessage on child .... " << std::endl;
+			if (queue->getMessage(msg)) {
 
-					/*
-					else if(counter == NUM_MESSAGES + (2*QUEUE_SIZE)) {
-						break;
-					}
-					else {
-						binary_semaphore->give();
-						counter++;
-					}
-					*/
-				}
+				counter++;
+				const MostMessage* mmsg = msg.getMostMessage();
+
+				auto now = std::chrono::system_clock::now();
+				auto now_ms = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
+				auto value = now_ms.time_since_epoch();
+				long received_time = value.count();
+
+				UInt64 send_time = mmsg->data.PackedData.time;
+				long duration = received_time - send_time;
+				mean_time += duration;
+
+				//Ausgaben:
+				std::cout << std::endl;
+				//std::cout << "a message exists" << std::endl;
+				std::cout << "Message Number: " << mmsg->data.PackedData.id << std::endl;
+				std::cout << "Message send: " << send_time << " ns" << std::endl;
+				std::cout << "Message received: " << received_time << " ns" << std::endl;
+				std::cout << "Send time: " << duration << " ns" << std::endl;
+				std::cout << "GyroX: " << mmsg->data.PackedData.motion.gyro.x << std::endl;
+				std::cout << "GyroY: " << mmsg->data.PackedData.motion.gyro.y << std::endl;
+				std::cout << "GyroZ: " << mmsg->data.PackedData.motion.gyro.z << std::endl;
+				std::cout << "AccX: " << mmsg->data.PackedData.motion.acc.x << std::endl;
+				std::cout << "AccY: " << mmsg->data.PackedData.motion.acc.y << std::endl;
+				std::cout << "AccZ: " << mmsg->data.PackedData.motion.acc.z << std::endl;
+
+				binary_semaphore->give();
+
+				if (counter == NUM_MESSAGES)
+					break;
+			}
+		}
+		
+		mean_time = mean_time / NUM_MESSAGES;
+		std::cout << "Mean time: " << mean_time << "ns" << std::endl;
 
 
+		printf("from parent: pid=%d child_pid=%d\n",(int)getpid(), (int)pid);
+		/* ========== ========== ========== */
+		int status;
+		pid_t waited_pid = waitpid(pid, &status, 0);
 
-
-				printf("from parent: pid=%d child_pid=%d\n",(int)getpid(), (int)pid);
-				/* ========== ========== ========== */
-				int status;
-			  pid_t waited_pid = waitpid(pid, &status, 0);
-
-				if (waited_pid < 0) {
-			    perror("waitpid() failed");
-			    exit(EXIT_FAILURE);
-				}
-				else if (waited_pid == pid) {
-					if (WIFEXITED(status)) {
-				    /* WIFEXITED(status) returns true if the child has terminated
-				     * normally. In this case WEXITSTATUS(status) returns child's
-				     * exit code.
-				     */
-				  	printf("from parent: child exited with code %d\n",WEXITSTATUS(status));
-				  }
-				}
+		if (waited_pid < 0) {
+		perror("waitpid() failed");
+		exit(EXIT_FAILURE);
+		}
+		else if (waited_pid == pid) {
+			if (WIFEXITED(status)) {
+			/* WIFEXITED(status) returns true if the child has terminated
+				* normally. In this case WEXITSTATUS(status) returns child's
+				* exit code.
+				*/
+			printf("from parent: child exited with code %d\n",WEXITSTATUS(status));
+			}
+		}
     }
     else
     {

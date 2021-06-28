@@ -233,7 +233,7 @@ int main(int argc, char** argv)
     struct sockaddr_in servaddr, destaddr;
     socklen_t size;
   	//struct sockaddr_storage serverStorage;
-		
+
     std::string temp_string = argv[2];
     const char* port = temp_string.c_str();
 
@@ -284,9 +284,6 @@ int main(int argc, char** argv)
 				const char *ack = "1";
 				write(sockfd, ack, strlen(ack));
 
-
-				//std::cout << "Received data: " << message << std::endl;
-				//std::cout << std::endl;
 				MostMessage mmsg = deserializeMessage(message);
 				const CMessage c_msg(mmsg);
 

@@ -1,3 +1,5 @@
+
+/*
 #include "TCP_Socket.h"
 
 TCP_Socket::TCP_Socket() {
@@ -10,7 +12,7 @@ TCP_Socket::~TCP_Socket() {
 
 void TCP_Socket::fill_serverInfo()
 {
-	memset(&hints, 0, sizeof(struct addrinfo));
+	memset(&hints, 0, sizeof((struct addrinfo) hints));
 
 	hints.ai_family = AF_UNSPEC;			//ipv4 or ipv6
 	hints.ai_socktype = SOCK_STREAM;		//stream (tcp) socket
@@ -18,8 +20,8 @@ void TCP_Socket::fill_serverInfo()
 	hints.ai_protocol = IPPROTO_TCP;
 	//bei spezifischer Adresse: AI_PASSIVE entfernen und bei getaddrinfo null durch die gew�nschte adresse ersetzen
 
-	getaddrinfo(NULL, CPORT, &hints, &res);
-	rp = res;
+	getaddrinfo(NULL, CPORT, &hints, &serverinfo);
+	rp = serverinfo;
 
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(IPORT);		//stores numbers in memory in Network byte order -> most significant byte first (big endian)
@@ -29,9 +31,13 @@ void TCP_Socket::fill_serverInfo()
 	addrSize = sizeof(servaddr);
 }
 
+
+
+
 void TCP_Socket::fill_serverInfo(const char* port)
 {
-	memset(&hints, 0, sizeof(struct addrinfo));
+
+	memset(&hints, 0, sizeof(hints));
 
 	hints.ai_family = AF_UNSPEC;			//ipv4 or ipv6
 	hints.ai_socktype = SOCK_STREAM;		//stream (tcp) socket
@@ -39,8 +45,12 @@ void TCP_Socket::fill_serverInfo(const char* port)
 	hints.ai_protocol = IPPROTO_TCP;
 	//bei spezifischer Adresse: AI_PASSIVE entfernen und bei getaddrinfo null durch die gew�nschte adresse ersetzen
 
-	getaddrinfo(NULL, port, &hints, &res);
-	rp = res;
+	if ((rv = getaddrinfo(NULL, port, &hints, &serverinfo)) != 0) {
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        exit(EXIT_FAILURE);
+	};
+
+	rp = serverinfo;
 
 	u_int16_t iport = atoi(port);
 
@@ -77,6 +87,7 @@ void TCP_Socket::create_socket()
 		perror("Could not create socket");
 		exit(EXIT_FAILURE);
 	}
+
 }
 
 //binds assigns the address specified by addr to the socket. "assigning a name to a socket"
@@ -125,6 +136,9 @@ void TCP_Socket::send_msg_to(const char* msg)
 	if (bytes_sent < 0) {
 		perror("Could not connect to socket");
 		exit(EXIT_FAILURE);
+	}
+	else {
+		std::cout << "bytes sent: " << bytes_sent << std::endl;
 	}
 }
 
@@ -177,7 +191,7 @@ void TCP_Socket::close_socket()
 //unn�tig f�r udp
 void TCP_Socket::connect_socket()
 {
-	if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
+	if (connect(sockfd, serverinfo->ai_addr, serverinfo->ai_addrlen) < 0) {
 		perror("Could not connect to socket");
 		exit(EXIT_FAILURE);
 	}
@@ -208,3 +222,60 @@ void TCP_Socket::IP_formatter(char *IPbuffer) { //convert IP string to dotted de
       exit(1);
    }
 }
+
+void* TCP_Socket::get_in_addr(struct sockaddr *sa)
+{
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
+
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+
+
+void TCP_Socket::routine(std::string port)
+{
+		//get port
+		const char* port = temp_string.c_str();
+
+		//fill server_info:
+		memset(&hints, 0, sizeof(hints)); //v
+
+
+		hints.ai_family = AF_UNSPEC;			//allow for ipv4 or ipv6
+		hints.ai_socktype = SOCK_STREAM;		//stream (tcp) socket
+		hints.ai_flags = AI_PASSIVE;			//bind to ip of the host the programm is running on. wildcard ip address
+		hints.ai_protocol = IPPROTO_TCP;
+
+		rv = getaddrinfo(NULL, CPORT, &hints, &serverinfo);
+		if(rv != 0)
+		{
+				fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+				exit(EXIT_FAILURE);
+		}
+
+		servaddr.sin_family = AF_INET;
+		servaddr.sin_port = htons(IPORT);		//stores numbers in memory in Network byte order -> most significant byte first (big endian)
+		servaddr.sin_addr.s_addr = INADDR_ANY;
+
+		memset(servaddr.sin_zero, 0, sizeof(servaddr.sin_zero));
+		addrSize = sizeof(servaddr);
+
+
+		//int socket(int domain, int type, int protocol); -> -1 on error
+		sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);	//sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		//int option = 1;
+		//setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
+
+		if (sockfd < 0) {
+			perror("Could not create socket");
+			exit(EXIT_FAILURE);
+		}
+
+
+
+
+
+}
+*/

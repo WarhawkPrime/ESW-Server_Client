@@ -9,7 +9,7 @@
 
 #include "CCommQueue.h"
 #include "SensorTag.h"
-#include "TCP_Socket.h"
+//#include "TCP_Socket.h"
 
 #include <pthread.h>
 #include <semaphore.h>
@@ -41,6 +41,8 @@ typedef struct PackedData PackedData_t;
 #define BUF_SIZE 1024
 void *addr;
 Int8 *que;
+
+#define BACKLOG 10
 
 //static int *global_finished;
 
@@ -98,7 +100,7 @@ MostMessage deserializeMessage(std::string msg) {
 	PackedData_t pck;
 	Motion_t motion;
 
-	std::cout << "Received Message: " << msg << std::endl;
+	//std::cout << "Received Message: " << msg << std::endl;
 	std::cout << "--------------------------------------" << std::endl;
 
 	int counter = 0;
@@ -107,55 +109,56 @@ MostMessage deserializeMessage(std::string msg) {
 		switch (counter) {
 
 		case 0: {
-			pck.id = ntohl(std::stoi(result));
-			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			pck.id = std::stoi(result);
+
+			//std::cout << "Counter: " << counter << " Result: " << result << std::endl;
 			counter++;
 			break;
 		}
 		case 1: {
-			pck.time = ntohl(std::stold(result));
-			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			pck.time = std::stold(result);
+			//std::cout << "Counter: " << counter << " Result: " << result << std::endl;
 			counter++;
 			break;
 		}
 		case 2: {
-			motion.gyro.x = ntohl(std::stof(result));
-			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			motion.gyro.x = std::stof(result);
+			//std::cout << "Counter: " << counter << " Result: " << result << std::endl;
 			counter++;
 			break;
 		}
 		case 3: {
-			motion.gyro.y = ntohl(std::stof(result));
-			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			motion.gyro.y = std::stof(result);
+			//std::cout << "Counter: " << counter << " Result: " << result << std::endl;
 			counter++;
 			break;
 		}
 		case 4: {
-			motion.gyro.z = ntohl(std::stof(result));
-			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			motion.gyro.z = std::stof(result);
+			//std::cout << "Counter: " << counter << " Result: " << result << std::endl;
 			counter++;
 			break;
 		}
 		case 5: {
-			motion.acc.x = ntohl(std::stof(result));
-			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			motion.acc.x = std::stof(result);
+			//std::cout << "Counter: " << counter << " Result: " << result << std::endl;
 			counter++;
 			break;
 		}
 		case 6: {
-			motion.acc.y = ntohl(std::stof(result));
-			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			motion.acc.y = std::stof(result);
+			//std::cout << "Counter: " << counter << " Result: " << result << std::endl;
 			counter++;
 			break;
 		}
 		case 7: {
-			motion.acc.z = ntohl(std::stof(result));
-			std::cout << "Counter: " << counter << " Result: " << result << std::endl;
+			motion.acc.z = std::stof(result);
+			//std::cout << "Counter: " << counter << " Result: " << result << std::endl;
 			counter++;
 			break;
 		}
 		default: {
-			std::cout << "Error in deserializeMessage()" << std::endl;
+			//std::cout << "Error in deserializeMessage()" << std::endl;
 			break;
 		}
 		}
@@ -184,7 +187,7 @@ int main(int argc, char** argv)
 		const char* port = argv[2];
 		std::cout << address << " / " << port << std::endl;
 
-		
+
 
 		shm_unlink(SHM_NAME);
 		int fd = shm_open(SHM_NAME, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
@@ -223,12 +226,39 @@ int main(int argc, char** argv)
 
 		std::string received_data;
 
-		// Set server info and create TCP socket 
-		TCP_Socket socket;
-		socket.fill_serverInfo(address, port);
-		socket.create_socket();
-		socket.connect_socket();
+		// Set server info and create TCP socket
+
+		//attributes
+    int sockfd, clientfd;
+    struct sockaddr_in servaddr, destaddr;
+    socklen_t size;
+  	//struct sockaddr_storage serverStorage;
+		
+    std::string temp_string = argv[2];
+    const char* port = temp_string.c_str();
+
+		sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if(sockfd < 0) {
+      perror("socket error");
+      exit(EXIT_FAILURE);
+    }
+
+    memset(&servaddr, 0, sizeof(servaddr));
+    memset(&destaddr, 0, sizeof(destaddr));
+
+  	u_int16_t iport = atoi(port);
+
+    servaddr.sin_family = AF_INET;
+  	servaddr.sin_port = htons(iport);		//stores numbers in memory in Network byte order -> most significant byte first (big endian)
+  	servaddr.sin_addr.s_addr = inet_addr(argv[1]);
+
+		if ((connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr))) < 0) {
+      perror("socket error");
+      exit(EXIT_FAILURE);
+    }
+
 		//--------------//
+
 
 		int counter = 0;
 		while (true) {
@@ -236,11 +266,28 @@ int main(int argc, char** argv)
 
 			if (counter < NUM_MESSAGES) {
 
-				// Receive sensor tag byte array
-				received_data = socket.rec_msg_fr();
-				
-				std::cout << "Received data: " << received_data << std::endl;
-				MostMessage mmsg = deserializeMessage(received_data);
+				char        buffer[BUF_SIZE];
+			  int get = BUF_SIZE;
+
+			  std::string message = "";
+			  while(get != 79) {
+					std::cout << "reading... " << std::endl;
+			    get = read(sockfd, buffer, BUF_SIZE - 1);
+
+			    buffer[get] = '\0';
+			    message += buffer;
+			    std::cout << "bytes read: " << get << std::endl;
+			  }
+
+				std::cout << "sending ack: " << std::endl;
+				//lesebestätigung
+				const char *ack = "1";
+				write(sockfd, ack, strlen(ack));
+
+
+				//std::cout << "Received data: " << message << std::endl;
+				//std::cout << std::endl;
+				MostMessage mmsg = deserializeMessage(message);
 				const CMessage c_msg(mmsg);
 
 				queue->add(c_msg);
@@ -263,8 +310,8 @@ int main(int argc, char** argv)
 			}
 			*/
 		}
-				
 
+		close(sockfd);
 		/* ========== ========== ========== */
 		printf("from child: pid=%d, parent_pid=%d\n",(int)getpid(), (int)getppid());
 		exit(42);
@@ -272,10 +319,10 @@ int main(int argc, char** argv)
 		/* ========== PARENT ========== */
     else if (pid > 0)
     {
-				
+
 		int counter = 0;
 		long mean_time = 0;
-				
+
 		while (true) {
 
 			//std::cout << "waiting for access on child .... " << std::endl;
@@ -318,7 +365,7 @@ int main(int argc, char** argv)
 					break;
 			}
 		}
-		
+
 		mean_time = mean_time / NUM_MESSAGES;
 		std::cout << "Mean time: " << mean_time << "ns" << std::endl;
 

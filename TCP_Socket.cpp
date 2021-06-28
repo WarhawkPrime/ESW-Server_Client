@@ -8,24 +8,22 @@ TCP_Socket::~TCP_Socket() {
 
 }
 
-void TCP_Socket::fill_serverInfo(const char* address, const char* port)
+void TCP_Socket::fill_serverInfo()
 {
 	memset(&hints, 0, sizeof(struct addrinfo));
 
 	hints.ai_family = AF_UNSPEC;			//ipv4 or ipv6
 	hints.ai_socktype = SOCK_STREAM;		//stream (tcp) socket
-				//bind to ip of the host the programm is running on
+	hints.ai_flags = AI_PASSIVE;			//bind to ip of the host the programm is running on
 	hints.ai_protocol = IPPROTO_TCP;
 	//bei spezifischer Adresse: AI_PASSIVE entfernen und bei getaddrinfo null durch die gew�nschte adresse ersetzen
 
-	int iPort = atoi(port);
-
-	getaddrinfo(address, port, &hints, &res);
+	getaddrinfo(NULL, CPORT, &hints, &res);
 	rp = res;
 
 	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(iPort);		//stores numbers in memory in Network byte order -> most significant byte first (big endian)
-	inet_aton(address,(struct in_addr*)&servaddr.sin_addr.s_addr);
+	servaddr.sin_port = htons(IPORT);		//stores numbers in memory in Network byte order -> most significant byte first (big endian)
+	servaddr.sin_addr.s_addr = INADDR_ANY;
 
 	memset(servaddr.sin_zero, 0, sizeof(servaddr.sin_zero));
 	addrSize = sizeof(servaddr);
@@ -52,19 +50,6 @@ void TCP_Socket::fill_serverInfo(const char* port)
 
 	memset(servaddr.sin_zero, 0, sizeof(servaddr.sin_zero));
 	addrSize = sizeof(servaddr);
-
-	int hostname;
-	char host[256];
-	char *IP;
-	struct hostent *host_entry;
-
-	hostname = gethostname(host, sizeof(host));
-	check_host_name(hostname);
-	host_entry = gethostbyname(host);
-	check_host_entry(host_entry);
-	IP = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0]));
-
-	std::cout << "server connects to host: " << host << "on IP: " << IP << " on Port: " << port << std::endl;
 }
 
 
@@ -122,7 +107,8 @@ void TCP_Socket::send_msg_to(const char* msg)
 	int bytes_sent = 0;
 
 	len = strlen(msg);
-	bytes_sent = send(sockfd, msg, len, 0);
+
+	bytes_sent = send(sockfd, msg, strlen(msg), 0);
 
 	if (bytes_sent < 0) {
 		perror("Could not connect to socket");
@@ -136,33 +122,24 @@ std::string TCP_Socket::rec_msg_fr()
 {
 	char readBuffer[BUF_SIZE];
 	int num_bytes_read = BUF_SIZE;
+	int num_bytes_written = 0;
 
 	std::string rec_message;
 	memset(readBuffer, 0, BUF_SIZE);
 
-	num_bytes_read = 0;
-	while(num_bytes_read == 0){
-		num_bytes_read = recv(sockfd, readBuffer, BUF_SIZE, MSG_WAITALL);
-		rec_message += readBuffer;
-	}
-	
-	/*
 	//TODO: read the recv as long as there are bytes to receive
 	while (num_bytes_read == BUF_SIZE) {
-		num_bytes_read = recv(sockfd, readBuffer, BUF_SIZE, MSG_WAITALL);
+		num_bytes_read = recv(sockfd, readBuffer, BUF_SIZE, 0);
 
 		//std::cout << "buffer: " << readBuffer << std::endl;
 
 		if (num_bytes_read < 0) {
 			perror("Read");
-			printf("recv error: %s\n", strerror(errno));
 		}
-		else {
-			std::cout << "message length: " << num_bytes_read << std::endl;
-		}
+
 		rec_message += readBuffer;
 	}
-	*/
+
 
 	//rec_message = readBuffer;
 	const char* teminate = "\0";
@@ -196,26 +173,4 @@ void TCP_Socket::connect_socket()
 	if (rp == NULL) {
 		std::cerr << "Could not connect to address" << std::endl;
 	}
-}
-
-
-void TCP_Socket::check_host_name(int hostname) { //This function returns host name for local computer
-   if (hostname == -1) {
-      perror("gethostname");
-      exit(1);
-   }
-}
-
-void TCP_Socket::check_host_entry(struct hostent * hostentry) { //find host info from host name
-   if (hostentry == NULL){
-      perror("gethostbyname");
-      exit(1);
-   }
-}
-
-void TCP_Socket::IP_formatter(char *IPbuffer) { //convert IP string to dotted decimal format
-   if (NULL == IPbuffer) {
-      perror("inet_ntoa");
-      exit(1);
-   }
 }

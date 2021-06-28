@@ -6,14 +6,6 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
-#include <netinet/in.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-
 #include <pthread.h>
 #include <semaphore.h>
 #include <sys/types.h>
@@ -29,7 +21,7 @@
 #include "CCommQueue.h"
 #include "SensorTag.h"
 
-//#include "TCP_Socket.h"
+#include "TCP_Socket.h"
 
 using namespace std;
 
@@ -49,9 +41,8 @@ typedef struct PackedData PackedData_t;
 void *addr;
 Int8 *que;
 
-//TCP_Socket tcp;
+TCP_Socket tcp;
 
-#define BACKLOG 10
 
 
 //static int *global_finished;
@@ -106,7 +97,7 @@ MostMessage create_Message(int id){
 
 int main(int argc, char* argv[])
 {
-		signal(SIGPIPE, SIG_IGN);
+
 		//std::cout << "argc" << argc << " : " << argv[1] << std::endl;
 
 		shm_unlink(SHM_NAME);
@@ -135,7 +126,7 @@ int main(int argc, char* argv[])
 		//*global_finished = 1;
 		//std::cout << "finished: " << *global_finished << std::endl;
 
-    //cout << "Creating a child process ..." << endl;
+    cout << "Creating a child process ..." << endl;
     pid_t pid = fork();
 
 		/* ========== CHILD ========== */
@@ -173,58 +164,24 @@ int main(int argc, char* argv[])
     else if (pid > 0)
     {
 
-				//===== ===== socket ===== =====
+				//===== socket =====
+				std::string temp_string = argv[1];
+				const char* port = temp_string.c_str();
 
-				//attributes
-			  int sockfd, clientfd;
-			  struct sockaddr_in servaddr, destaddr;
-			  socklen_t size;
-				//struct sockaddr_storage serverStorage;
-
-			  std::string temp_string = argv[1];
-			  const char* port = temp_string.c_str();
-
-			  sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-			  if(sockfd < 0) {
-			    perror("socket error");
-			    exit(EXIT_FAILURE);
-			  }
-
-			  memset(&servaddr, 0, sizeof(servaddr));
-			  memset(&destaddr, 0, sizeof(destaddr));
-
-				u_int16_t iport = atoi(port);
-
-			  servaddr.sin_family = AF_INET;
-				servaddr.sin_port = htons(iport);		//stores numbers in memory in Network byte order -> most significant byte first (big endian)
-				servaddr.sin_addr.s_addr = INADDR_ANY;
-
-			  if((bind(sockfd, (struct sockaddr *)&servaddr, sizeof(struct sockaddr))) < 0) {
-			    perror("bind error");
-			    exit(EXIT_FAILURE);
-			  }
-
-			  if((listen(sockfd, BACKLOG)) < 0) {
-			    perror("listen error");
-			    exit(EXIT_FAILURE);
-			  }
-
-
-			  struct  sockaddr_storage    serverStorage;
-			  socklen_t                   addr_size   = sizeof serverStorage;
-			  int newSocket = accept(sockfd, (struct sockaddr*)&serverStorage, &addr_size);
-			  if (newSocket < 0) {
-					perror("accept error");
-			    exit(EXIT_FAILURE);
-				}
-
+				tcp.fill_serverInfo(port);
+				tcp.create_socket();
+				tcp.bind_socket();
+				tcp.listen_socket();
+				//===== socket =====/
 
 				long mean_time = 0;
 				int counter = 0;
 
 				while(true) {
 
-					std::cout << "start of while: " << std::endl;
+					//wait for incoming connections
+					tcp.accept_connection();
+
 					//std::cout << "waiting for access on child .... " << std::endl;
 
 					binary_semaphore->take();  // wait for signal
@@ -250,8 +207,8 @@ int main(int argc, char* argv[])
 						//std::cout << "a message exists" << std::endl;
 						std::cout << "Message Number: " << mmsg->data.PackedData.id << std::endl;
 						std::cout << "Message send: " << send_time  << " ns"<< std::endl;
-						//std::cout << "Message received: " << received_time << " ns"<< std::endl;
-						//std::cout << "Send time: " << duration << " ns"<< std::endl;
+						std::cout << "Message received: " << received_time << " ns"<< std::endl;
+						std::cout << "Send time: " << duration << " ns"<< std::endl;
 						std::cout << "GyroX: " << mmsg->data.PackedData.motion.gyro.x << std::endl;
 						std::cout << "GyroY: " << mmsg->data.PackedData.motion.gyro.y << std::endl;
 						std::cout << "GyroZ: " << mmsg->data.PackedData.motion.gyro.z << std::endl;
@@ -259,47 +216,22 @@ int main(int argc, char* argv[])
 						std::cout << "AccY: " << mmsg->data.PackedData.motion.acc.y << std::endl;
 						std::cout << "AccZ: " << mmsg->data.PackedData.motion.acc.z << std::endl;
 
-
-
 						//===== socket =====
+						std::string message = "NR: " + mmsg->data.PackedData.id;
+						message += "ST: " + send_time;
+						message += "RT: " + received_time;
+						message += "DT: " + duration;
+						message += "GX: " + std::to_string(mmsg->data.PackedData.motion.gyro.x);
+						message += "GY: " + std::to_string(mmsg->data.PackedData.motion.gyro.y);
+						message += "GZ: " + std::to_string(mmsg->data.PackedData.motion.gyro.z);
+						message += "AX: " + std::to_string(mmsg->data.PackedData.motion.acc.x);
+						message += "AY: " + std::to_string(mmsg->data.PackedData.motion.acc.y);
+						message += "AZ: " + std::to_string(mmsg->data.PackedData.motion.acc.z);
 
-						std::string message = std::to_string(mmsg->data.PackedData.id);
-						message += ";";
-						message += std::to_string(send_time);
-						message += ";";
-						message += std::to_string(mmsg->data.PackedData.motion.gyro.x);
-						message += ";";
-						message += std::to_string(mmsg->data.PackedData.motion.gyro.y);
-						message += ";";
-						message += std::to_string(mmsg->data.PackedData.motion.gyro.z);
-						message += ";";
-						message += std::to_string(mmsg->data.PackedData.motion.acc.x);
-						message += ";";
-						message += std::to_string(mmsg->data.PackedData.motion.acc.y);
-						message += ";";
-						message += std::to_string(mmsg->data.PackedData.motion.acc.z);
-						message += ";";
 						const char* msg = message.c_str();
-						//const char* msg = "Test message";
-						std::cout << "writing ..." << std::endl;
-						write(newSocket, msg, strlen(msg));
-						std::cout << "write length: " << strlen(msg) << std::endl;
-
-						//empfangsbestätigung
-						char        buffer[BUF_SIZE];
-					  int get = BUF_SIZE;
-
-					  std::string ack_string = "";
-
-						std::cout << "reading ..." << std::endl;
-				    get = read(newSocket, buffer, BUF_SIZE - 1);
-
-				    buffer[get] = '\0';
-				    ack_string += buffer;
-				    std::cout << "bytes read: " << get << std::endl;
-
-
+						tcp.send_msg_to(msg);
 						//===== socket =====/
+
 						binary_semaphore->give();
 
 						if(counter == NUM_MESSAGES)
@@ -311,11 +243,6 @@ int main(int argc, char* argv[])
 				mean_time = mean_time / NUM_MESSAGES;
 				std::cout << "Mean Time: " << mean_time << " ns" << std::endl;
 				//std::cout << "finished: " << *global_finished << std::endl;
-
-				//tcp.close_socket();
-				shutdown(sockfd, SHUT_WR);
-				close(newSocket);
-  			close(sockfd);
 
 				printf("from parent: pid=%d child_pid=%d\n",(int)getpid(), (int)pid);
 				/* ========== ========== ========== */
@@ -344,7 +271,7 @@ int main(int argc, char* argv[])
     }
 
 		//===== socket =====
-		//tcp.close_socket();
+		tcp.close_socket();
 		//===== socket =====/
 		shm_unlink(SHM_NAME);
     return 0;

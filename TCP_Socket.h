@@ -13,14 +13,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <netdb.h>
-/*
+
+
 #define BUF_SIZE 2000
 #define CPORT	"80"
 #define IPORT	80
 #define LISTEN_BACKLOG 50 //defines max length to which the queue of pending connections
 													//for sockfd may grow
-*/
+
 /*
 socket()
 
@@ -31,7 +31,7 @@ send()
 recv()
 
 */
-/*
+
 class TCP_Socket
 {
 public:
@@ -39,34 +39,13 @@ public:
 	TCP_Socket();
 	~TCP_Socket();
 
-	int sockfd, new_fd;		//listen on sockfd, new connection on new_fd
-	struct addrinfo hints;
-	struct addrinfo *serverinfo, *p;
-	struct sockaddr_storage their_addr; //connectors address information
-	socklen_t serverinfo_size;
-
-	struct sigaction sa;
-	char s[INET6_ADDRSTRLEN];
-	int rv;
-
-
-
-
-
-	char buffer[BUF_SIZE];		//buffer f�r die �bertragung
-	size_t len;
-	ssize_t nread;
-	socklen_t addrSize;
-	socklen_t peer_addr_size;
-
-	int clientfd;
-
-
 	struct sockaddr_in servaddr;
 	struct sockaddr_in to;
 
 	struct sockaddr_in peer_addr;
-	int rv;
+
+	struct addrinfo hints;
+	struct addrinfo* res, * rp;
 
 	void fill_serverInfo();
 	void fill_serverInfo(const char* port);
@@ -80,13 +59,6 @@ public:
 	std::string rec_msg_fr();
 	void close_socket();			//close to release the data
 
-	void *get_in_addr(struct sockaddr *sa);
-
-
-
-	void routine(std::string port);
-
-
 
 	//========== Getter & Setter ==========
 	std::string get_CPORT() const { return CPORT; }
@@ -98,12 +70,14 @@ public:
 	int get_buffer_size() const { return BUF_SIZE; }
 	std::string get_server_adress() const { return std::to_string(servaddr.sin_addr.s_addr); }
 
-	void check_host_name(int hostname);
-	void check_host_entry(struct hostent * hostentry);
-	void IP_formatter(char *IPbuffer);
-
 private:
+	int sockfd;				//file description
+	char buffer[BUF_SIZE];		//buffer f�r die �bertragung
+	size_t len;
+	ssize_t nread;
+	socklen_t addrSize;
+	socklen_t peer_addr_size;
 
+	int clientfd;
 
 };
-*/

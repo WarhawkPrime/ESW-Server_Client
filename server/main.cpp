@@ -35,7 +35,7 @@ using namespace std;
 
 #define SHM_NAME        "/estSHM"
 #define QUEUE_SIZE      1
-#define NUM_MESSAGES    10
+#define NUM_MESSAGES    10000
 
 struct PackedData {
 	UInt16 id;

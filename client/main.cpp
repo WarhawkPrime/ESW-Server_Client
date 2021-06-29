@@ -28,7 +28,7 @@ using namespace std;
 
 #define SHM_NAME        "/estSHM"
 #define QUEUE_SIZE      1
-#define NUM_MESSAGES    10
+#define NUM_MESSAGES    10000
 
 struct PackedData {
 	UInt16 id;
@@ -270,14 +270,14 @@ int main(int argc, char** argv)
 			  int get = BUF_SIZE;
 
 			  std::string message = "";
-			  while(get != 79) {
-					std::cout << "reading... " << std::endl;
-			    get = read(sockfd, buffer, BUF_SIZE - 1);
+			  //while(get != 79) {
+				std::cout << "reading... " << std::endl;
+		    get = read(sockfd, buffer, BUF_SIZE - 1);
 
-			    buffer[get] = '\0';
-			    message += buffer;
-			    std::cout << "bytes read: " << get << std::endl;
-			  }
+		    buffer[get] = '\0';
+		    message += buffer;
+		    std::cout << "bytes read: " << get << std::endl;
+			  //}
 
 				std::cout << "sending ack: " << std::endl;
 				//lesebestätigung
